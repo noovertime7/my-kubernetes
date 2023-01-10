@@ -61,20 +61,27 @@ type ThreadSafeStore interface {
 
 // threadSafeMap implements ThreadSafeStore
 type threadSafeMap struct {
-	lock  sync.RWMutex
+	lock sync.RWMutex
+	// TODO 存储资源对象数据，key(对象键) 通过 keyFunc 得到 这就是真正存储的数据（对象键 -> 对象）
 	items map[string]interface{}
 
 	// indexers maps a name to an IndexFunc
+	// indexers 索引分类与索引键函数的映射
 	indexers Indexers
 	// indices maps a name to an Index
+	// indices 通过索引可以快速找到对象键
 	indices Indices
 }
 
+// Add 添加对象
 func (c *threadSafeMap) Add(key string, obj interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	// 获取老的对象
 	oldObject := c.items[key]
+	// 写入新的对象，items 中存的是 objKey -> obj 的映射
 	c.items[key] = obj
+	// 添加了新的对象，所以要更新索引
 	c.updateIndices(oldObject, obj, key)
 }
 
@@ -89,8 +96,11 @@ func (c *threadSafeMap) Update(key string, obj interface{}) {
 func (c *threadSafeMap) Delete(key string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	// 判断对象是否存在，存在才执行删除操作
 	if obj, exists := c.items[key]; exists {
+		// 删除对象索引
 		c.deleteFromIndices(obj, key)
+		// 删除对象本身
 		delete(c.items, key)
 	}
 }
@@ -255,6 +265,7 @@ func (c *threadSafeMap) AddIndexers(newIndexers Indexers) error {
 // updateIndices must be called from a function that already has a lock on the cache
 func (c *threadSafeMap) updateIndices(oldObj interface{}, newObj interface{}, key string) {
 	// if we got an old object, we need to remove it before we add it again
+	// 如果有旧的对象，需要先从索引中删除这个对象
 	if oldObj != nil {
 		c.deleteFromIndices(oldObj, key)
 	}
