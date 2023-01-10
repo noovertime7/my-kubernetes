@@ -269,11 +269,25 @@ func (c *threadSafeMap) updateIndices(oldObj interface{}, newObj interface{}, ke
 	if oldObj != nil {
 		c.deleteFromIndices(oldObj, key)
 	}
+	// indexers: {
+	//  namespace: namespaceIndexFunc
+	//  nodeName: nodeNameIndexFunc
+	//}
 	for name, indexFunc := range c.indexers {
 		indexValues, err := indexFunc(newObj)
+		// namespace: ["default","kube-system"]
 		if err != nil {
 			panic(fmt.Errorf("unable to calculate an index entry for key %q on index %q: %v", key, name, err))
 		}
+		// 	indices : {
+		// 		namespace: {
+		//	 		default: set["default/podA","default/podB"],
+		//          kube-system: set["kube-system/podAA"]
+		// 		},
+		//		nodeName: {
+		//			node1: set["default/podC","kube-system/podD"]
+		//		}
+		// 	}
 		index := c.indices[name]
 		if index == nil {
 			index = Index{}
@@ -294,13 +308,28 @@ func (c *threadSafeMap) updateIndices(oldObj interface{}, newObj interface{}, ke
 // deleteFromIndices removes the object from each of the managed indexes
 // it is intended to be called from a function that already has a lock on the cache
 func (c *threadSafeMap) deleteFromIndices(obj interface{}, key string) {
+	// TODO podA{} default/podA
+	// indexers: {
+	//  namespace: namespaceIndexFunc
+	//  nodeName: nodeNameIndexFunc
+	//}
 	for name, indexFunc := range c.indexers {
 		indexValues, err := indexFunc(obj)
+		// indexValues = ["default"]
 		if err != nil {
 			panic(fmt.Errorf("unable to calculate an index entry for key %q on index %q: %v", key, name, err))
 		}
-
+		// 	indices : {
+		// 		namespace: {
+		//	 		default: ["default/podA","default/podB"],
+		//          kube-system: ["kube-system/podAA"]
+		// 		},
+		//		nodeName: {
+		//			node1: ["default/podC","kube-system/podD"]
+		//		}
+		// 	}
 		index := c.indices[name]
+		// 如果索引本身为空的话就不需要处理了
 		if index == nil {
 			continue
 		}
@@ -312,6 +341,9 @@ func (c *threadSafeMap) deleteFromIndices(obj interface{}, key string) {
 				// If we don't delete the set when zero, indices with high cardinality
 				// short lived resources can cause memory to increase over time from
 				// unused empty sets. See `kubernetes/kubernetes/issues/84959`.
+
+				// 如果set为空，就是这个样子：  default: [] ,需要把default从index中删除
+
 				if len(set) == 0 {
 					delete(index, indexValue)
 				}
