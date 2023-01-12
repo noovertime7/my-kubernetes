@@ -134,6 +134,7 @@ type SharedInformer interface {
 	// AddEventHandler adds an event handler to the shared informer using the shared informer's resync
 	// period.  Events to a single handler are delivered sequentially, but there is no coordination
 	// between different handlers.
+	// 添加资源事件处理器，当有资源变化时就会通过回调通知使用者
 	AddEventHandler(handler ResourceEventHandler)
 	// AddEventHandlerWithResyncPeriod adds an event handler to the
 	// shared informer with the requested resync period; zero means
@@ -149,21 +150,28 @@ type SharedInformer interface {
 	// between any two resyncs may be longer than the nominal period
 	// because the implementation takes time to do work and there may
 	// be competing load and scheduling noise.
+	// 需要周期同步的资源事件处理器
 	AddEventHandlerWithResyncPeriod(handler ResourceEventHandler, resyncPeriod time.Duration)
 	// GetStore returns the informer's local cache as a Store.
+	// 获取一个 Store 对象，前面我们讲解了很多实现 Store 的结构
 	GetStore() Store
 	// GetController is deprecated, it does nothing useful
+	// 获取一个 Controller，下面会详细介绍，主要是用来将 Reflector 和 DeltaFIFO 组合到一起工作
 	GetController() Controller
 	// Run starts and runs the shared informer, returning after it stops.
 	// The informer will be stopped when stopCh is closed.
+	// SharedInformer 的核心实现，启动并运行这个 SharedInformer
+	// 当 stopCh 关闭时候，informer 才会退出
 	Run(stopCh <-chan struct{})
 	// HasSynced returns true if the shared informer's store has been
 	// informed by at least one full LIST of the authoritative state
 	// of the informer's object collection.  This is unrelated to "resync".
+	// 告诉使用者全量的对象是否已经同步到了本地存储中
 	HasSynced() bool
 	// LastSyncResourceVersion is the resource version observed when last synced with the underlying
 	// store. The value returned is not synchronized with access to the underlying store and is not
 	// thread-safe.
+	// 最新同步资源的版本
 	LastSyncResourceVersion() string
 
 	// The WatchErrorHandler is called whenever ListAndWatch drops the
@@ -183,6 +191,7 @@ type SharedInformer interface {
 }
 
 // SharedIndexInformer provides add and get Indexers ability based on SharedInformer.
+// 在 SharedInformer 基础上扩展了添加和获取 Indexers 的能力
 type SharedIndexInformer interface {
 	SharedInformer
 	// AddIndexers add indexers to the informer before it starts.
@@ -251,6 +260,7 @@ func WaitForNamedCacheSync(controllerName string, stopCh <-chan struct{}, cacheS
 // WaitForCacheSync waits for caches to populate.  It returns true if it was successful, false
 // if the controller should shutdown
 // callers should prefer WaitForNamedCacheSync()
+// TODO 同步等待多任务完成
 func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool {
 	err := wait.PollImmediateUntil(syncedPollPeriod,
 		func() (bool, error) {
