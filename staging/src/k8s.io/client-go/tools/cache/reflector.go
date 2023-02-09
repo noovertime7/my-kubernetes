@@ -268,7 +268,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 	klog.V(3).Infof("Listing and watching %v from %s", r.expectedTypeName, r.name)
 	var resourceVersion string
 
-	// TODO relistResourceVersion 通过反射器的 `relistResourceVersion` 函数获得反射器 relist 的资源版本，如果资源版本非 0，则表示根据资源版本号继续获取，
+	// NOTICE relistResourceVersion 通过反射器的 `relistResourceVersion` 函数获得反射器 relist 的资源版本，如果资源版本非 0，则表示根据资源版本号继续获取，
 	// 当传输过程中遇到网络故障或者其他原因导致中断，下次再连接时，会根据资源版本号继续传输未完成的部分。可以使本地缓存中的数据与Etcd集群中的数据保持一致
 	options := metav1.ListOptions{ResourceVersion: r.relistResourceVersion()}
 
@@ -291,7 +291,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 			// 如果 listWatcher 支持，会尝试 chunks（分块）收集 List 列表数据
 			// 如果不支持，第一个 List 列表请求将返回完整的响应数据。
 			pager := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
-				// TODO 获取全量的资源对象，而这个 List 其实 ListerWatcher 实现的 List 方法，这个 ListerWatcher 接口实际上在该接口定义的同一个文件中就有一个 ListWatch 结构体实现了
+				// NOTICE 获取全量的资源对象，而这个 List 其实 ListerWatcher 实现的 List 方法，这个 ListerWatcher 接口实际上在该接口定义的同一个文件中就有一个 ListWatch 结构体实现了
 				return r.listerWatcher.List(opts)
 			}))
 			switch {
@@ -362,7 +362,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 		if err != nil {
 			return fmt.Errorf("unable to understand list result %#v: %v", list, err)
 		}
-		// TODO 获取资源版本号
+		// NOTICE 获取资源版本号
 		resourceVersion = listMetaInterface.GetResourceVersion()
 		initTrace.Step("Resource version extracted")
 		// 将资源数据转换成资源对象列表，将 runtime.Object 对象转换成 []runtime.Object 对象
@@ -371,7 +371,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 			return fmt.Errorf("unable to understand list result %#v (%v)", list, err)
 		}
 		initTrace.Step("Objects extracted")
-		// TODo 将资源对象列表中的资源对象和资源版本号存储在 Store 中
+		// NOTICE 将资源对象列表中的资源对象和资源版本号存储在 Store 中
 		if err := r.syncWith(items, resourceVersion); err != nil {
 			return fmt.Errorf("unable to sync list result: %v", err)
 		}
@@ -399,7 +399,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 			case <-cancelCh:
 				return
 			}
-			// TODO 如果 ShouldResync 为 nil 或者调用返回true，则执行 Store 的 Resync 操作
+			// NOTICE 如果 ShouldResync 为 nil 或者调用返回true，则执行 Store 的 Resync 操作
 			if r.ShouldResync == nil || r.ShouldResync() {
 				klog.V(4).Infof("%s: forcing resync", r.name)
 				if err := r.store.Resync(); err != nil {
@@ -451,7 +451,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 			return err
 		}
 
-		// TODO 调用 watchHandler 来处理分发 watch 到的事件对象
+		// NOTICE 调用 watchHandler 来处理分发 watch 到的事件对象
 		if err := r.watchHandler(start, w, &resourceVersion, resyncerrc, stopCh); err != nil {
 			if err != errorStopRequested {
 				switch {

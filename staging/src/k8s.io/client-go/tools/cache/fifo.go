@@ -103,10 +103,11 @@ func Pop(queue Queue) interface{} {
 // recent version will be processed. This can't be done with a channel
 //
 // FIFO solves this use case:
-//  * You want to process every object (exactly) once.
-//  * You want to process the most recent version of the object when you process it.
-//  * You do not want to process deleted objects, they should be removed from the queue.
-//  * You do not want to periodically reprocess objects.
+//   - You want to process every object (exactly) once.
+//   - You want to process the most recent version of the object when you process it.
+//   - You do not want to process deleted objects, they should be removed from the queue.
+//   - You do not want to periodically reprocess objects.
+//
 // Compare with DeltaFIFO for other use cases.
 type FIFO struct {
 	lock sync.RWMutex
@@ -222,9 +223,9 @@ func (f *FIFO) Update(obj interface{}) error {
 // Delete removes an item. It doesn't add it to the queue, because
 // this implementation assumes the consumer only cares about the objects,
 // not the order in which they were created/added.
-//接着就是删除 Delete 方法的实现，这里可能大家会有一个疑问，下面的删除实现只删除了 items 中的元素，
-//那这样岂不是 queue 和 items 中的 key 会不一致吗？
-//的确会这样，但是这是一个队列，下面的 Pop() 函数会根据 queue 里面的元素一个一个的弹出 key，没有对象就不处理了，相当于下面的 Pop() 函数中实现了 queue 的 key 的删除：
+// 接着就是删除 Delete 方法的实现，这里可能大家会有一个疑问，下面的删除实现只删除了 items 中的元素，
+// 那这样岂不是 queue 和 items 中的 key 会不一致吗？
+// 的确会这样，但是这是一个队列，下面的 Pop() 函数会根据 queue 里面的元素一个一个的弹出 key，没有对象就不处理了，相当于下面的 Pop() 函数中实现了 queue 的 key 的删除：
 func (f *FIFO) Delete(obj interface{}) error {
 	id, err := f.keyFunc(obj)
 	if err != nil {
@@ -294,7 +295,7 @@ func (f *FIFO) IsClosed() bool {
 // AddIfNotPresent(). process function is called under lock, so it is safe
 // update data structures in it that need to be in sync with the queue.
 
-// Pop 会等到一个元素准备好后再进行处理，如果有多个元素准备好了，则按照它们被添加或更新的顺序返回。
+// Notice Pop 会等到一个元素准备好后再进行处理，如果有多个元素准备好了，则按照它们被添加或更新的顺序返回。
 //
 // 在处理之前，元素会从队列（和存储）中移除，所以如果没有成功处理，应该用 AddIfNotPresent() 函数把它添加回来。
 // 处理函数是在有锁的情况下调用的，所以更新其中需要和队列同步的数据结构是安全的。
@@ -347,6 +348,7 @@ func (f *FIFO) Pop(process PopProcessFunc) (interface{}, error) {
 // Replace 将删除队列中的内容，'f' 拥有 map 的所有权，调用该函数过后，不应该再引用 map。
 // 'f' 的队列也会被重置，返回时，队列将包含 map 中的元素，没有特定的顺序。
 func (f *FIFO) Replace(list []interface{}, resourceVersion string) error {
+	// 从 list 中提取出 key 然后和里面的元素重新进行映射
 	items := make(map[string]interface{}, len(list))
 	for _, item := range list {
 		key, err := f.keyFunc(item)
@@ -363,7 +365,7 @@ func (f *FIFO) Replace(list []interface{}, resourceVersion string) error {
 		f.populated = true
 		f.initialPopulationCount = len(items)
 	}
-
+	// 重新设置 items 和 queue 的值
 	f.items = items
 	f.queue = f.queue[:0]
 	for id := range items {

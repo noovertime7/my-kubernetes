@@ -72,11 +72,11 @@ type DeltaFIFOOptions struct {
 // the Pop() method.
 //
 // DeltaFIFO solves this use case:
-//  * You want to process every object change (delta) at most once.
-//  * When you process an object, you want to see everything
-//    that's happened to it since you last processed it.
-//  * You want to process the deletion of some of the objects.
-//  * You might want to periodically reprocess objects.
+//   - You want to process every object change (delta) at most once.
+//   - When you process an object, you want to see everything
+//     that's happened to it since you last processed it.
+//   - You want to process the deletion of some of the objects.
+//   - You might want to periodically reprocess objects.
 //
 // DeltaFIFO's Pop(), Get(), and GetByKey() methods return
 // interface{} to satisfy the Store/Queue interfaces, but they
@@ -169,7 +169,8 @@ const (
 // change happened, and the object's state after* that change.
 //
 // [*] Unless the change is a deletion, and then you'll get the final
-//     state of the object before it was deleted.
+//
+//	state of the object before it was deleted.
 type Delta struct {
 	Type   DeltaType
 	Object interface{}
@@ -190,24 +191,27 @@ type Deltas []Delta
 // modifications.
 //
 // TODO: consider merging keyLister with this object, tracking a list of
-//       "known" keys when Pop() is called. Have to think about how that
-//       affects error retrying.
-// NOTE: It is possible to misuse this and cause a race when using an
-//       external known object source.
-//       Whether there is a potential race depends on how the consumer
-//       modifies knownObjects. In Pop(), process function is called under
-//       lock, so it is safe to update data structures in it that need to be
-//       in sync with the queue (e.g. knownObjects).
 //
-//       Example:
-//       In case of sharedIndexInformer being a consumer
-//       (https://github.com/kubernetes/kubernetes/blob/0cdd940f/staging/
-//       src/k8s.io/client-go/tools/cache/shared_informer.go#L192),
-//       there is no race as knownObjects (s.indexer) is modified safely
-//       under DeltaFIFO's lock. The only exceptions are GetStore() and
-//       GetIndexer() methods, which expose ways to modify the underlying
-//       storage. Currently these two methods are used for creating Lister
-//       and internal tests.
+//	"known" keys when Pop() is called. Have to think about how that
+//	affects error retrying.
+//
+// NOTE: It is possible to misuse this and cause a race when using an
+//
+//	external known object source.
+//	Whether there is a potential race depends on how the consumer
+//	modifies knownObjects. In Pop(), process function is called under
+//	lock, so it is safe to update data structures in it that need to be
+//	in sync with the queue (e.g. knownObjects).
+//
+//	Example:
+//	In case of sharedIndexInformer being a consumer
+//	(https://github.com/kubernetes/kubernetes/blob/0cdd940f/staging/
+//	src/k8s.io/client-go/tools/cache/shared_informer.go#L192),
+//	there is no race as knownObjects (s.indexer) is modified safely
+//	under DeltaFIFO's lock. The only exceptions are GetStore() and
+//	GetIndexer() methods, which expose ways to modify the underlying
+//	storage. Currently these two methods are used for creating Lister
+//	and internal tests.
 //
 // Also see the comment on DeltaFIFO.
 //
@@ -434,8 +438,8 @@ func isDup(a, b *Delta) *Delta {
 
 // keep the one with the most information if both are deletions.
 
-//TODO 因为系统对于删除的对象有 `DeletedFinalStateUnknown` 这个状态，所以会存在两次删除的情况，
-//但是两次添加同一个对象由于 APIServer 可以保证对象的唯一性，所以这里没有考虑合并两次添加操作的情况。
+// TODO 因为系统对于删除的对象有 `DeletedFinalStateUnknown` 这个状态，所以会存在两次删除的情况，
+// 但是两次添加同一个对象由于 APIServer 可以保证对象的唯一性，所以这里没有考虑合并两次添加操作的情况。
 func isDeletionDup(a, b *Delta) *Delta {
 	// 二者类型都是删除那肯定有一个是重复的，则返回一个即可
 	if b.Type != Deleted || a.Type != Deleted {
@@ -628,7 +632,7 @@ func (f *DeltaFIFO) Pop(process PopProcessFunc) (interface{}, error) {
 // what `f.knownObjects.GetByKey(K)` returns.
 
 // Replace 主要用于实现对象的全量更新，由于 DeltaFIFO 对外输出的就是所有目标的增量变化，所以每次全量更新都要判断对象是否已经删除，因为在全量更新前可能没有收到目标删除的请求。
-//这一点与 cache 不同，cache 的Replace() 相当于重建，因为 cache 就是对象全量的一种内存映射，所以Replace() 就等于重建。
+// 这一点与 cache 不同，cache 的Replace() 相当于重建，因为 cache 就是对象全量的一种内存映射，所以Replace() 就等于重建。
 func (f *DeltaFIFO) Replace(list []interface{}, resourceVersion string) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
@@ -714,7 +718,7 @@ func (f *DeltaFIFO) Replace(list []interface{}, resourceVersion string) error {
 			klog.Infof("Key %v does not exist in known objects store, placing DeleteFinalStateUnknown marker without object", k)
 		}
 		queuedDeletions++
-		// TODO 为什么要传递一个DeletedFinalStateUnknown而不直接传递一个obj过去呢？
+		// Notice 为什么要传递一个DeletedFinalStateUnknown而不直接传递一个obj过去呢？
 
 		// 前面的代码可能会出错，并将deletedObj置为nil，如果传nil进去，会对一个nil取key
 		// 把对象删除的 Delta 放入队列，和上面一样避免重复，使用 DeletedFinalStateUnknown 包装下对象
@@ -724,7 +728,7 @@ func (f *DeltaFIFO) Replace(list []interface{}, resourceVersion string) error {
 	}
 
 	if !f.populated {
-		// TODO 从哪里会用到 initialPopulationCount 与 populated 呢？ => HasSynced
+		// Notice 从哪里会用到 initialPopulationCount 与 populated 呢？ => HasSynced
 		f.populated = true
 		f.initialPopulationCount = keys.Len() + queuedDeletions
 	}
